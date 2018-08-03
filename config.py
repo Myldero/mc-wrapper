@@ -41,7 +41,7 @@ def get(wrapper):
                     f.write(json.dumps({'enabled': False, 'key': ''}, indent=4))
 
                 elif file == "votifier":
-                    f.write(json.dumps({'enabled': False, 'ip': '0.0.0.0', 'port': 8192, 'commands': ["tellraw @a {\"text\":\"{username} has just voted on {service_name}!\",\"color\":\"gold\"}", "scoreboard players add {username} votes 1"]}, indent=4))
+                    f.write(json.dumps({'enabled': False, 'check_players': True, 'ip': '0.0.0.0', 'port': 8192, 'commands': ["tellraw @a {\"text\":\"{username} has just voted on {service_name}!\",\"color\":\"gold\"}", "scoreboard players add {username} votes 1"]}, indent=4))
 
                 elif file == "scheduler":
                     f.write(json.dumps([{"type":"at","time":{"hours":6},"command":["!restart"]}, {"type":"every","time":{"minutes": 10, "seconds": 1},"commands":["say 10 minutes and 1 second have passed :)"]}], indent=4))

@@ -2,7 +2,7 @@
 An extension that allows for detecting votes on server lists and sending commands as rewards
 '''
 
-import threading, socket, re
+import threading, socket, re, os, requests
 from Crypto.PublicKey import RSA
 from Crypto import Random
 
@@ -61,7 +61,7 @@ class Votifier(threading.Thread):
                             try:
                                 vote["service_name"], vote["username"], vote["address"], vote["time_stamp"] = [i.decode() for i in code.split(b"VOTE")[1].split()[:4]]
 
-                                if re.search(r'^[A-Za-z0-9_]+$', vote["username"]):
+                                if not self.check_players or self.check_player(vote["username"]):
 
                                     out = ""
                                     for command in self.commands:
@@ -99,7 +99,39 @@ class Votifier(threading.Thread):
         self.ip = config["votifier"]["ip"]
         self.port = config["votifier"]["port"]
         self.commands = config["votifier"]["commands"]
+        self.check_players = config["votifier"]["check_players"]
         self.private_key = RSA.importKey(config["votifier"]["private_key"])
         self.buffer = 256
 
         self.stop()
+
+    def check_player(self, username):
+        if not re.search(r'^[A-Za-z0-9_]+$', username): return False
+
+        try:
+            uuid = get_uuid(username)
+
+            file_path = self.wrapper.server.config["file_path"]
+            world_name = self.wrapper.server.properties["level-name"]
+
+            return os.path.exists(os.path.join(file_path, world_name, "playerdata", "{}.dat".format(uuid)))
+
+        except Exception:
+            return False
+
+        return True
+
+
+
+def get_uuid(username):
+
+	'''
+	Gets the UUID of a player formatted with dashes
+	'''
+
+	url = "https://api.mojang.com/users/profiles/minecraft/" + username
+	response = requests.get(url).json()
+	uuid = response["id"]
+	uuid = uuid[:8]+"-"+uuid[8:12]+"-"+uuid[12:16]+"-"+uuid[16:20]+"-"+uuid[20:]
+
+	return uuid
