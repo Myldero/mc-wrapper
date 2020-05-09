@@ -50,7 +50,7 @@ def get(wrapper):
                     f.write(json.dumps({'enabled': False}, indent=4))
 
                 elif file == "spamfilter":
-                    f.write(json.dumps({"enabled": False, "kicks_before_ban": 2, "warns_before_kick": 2, "warn_cmd": "msg {sender} \"Please watch the spam!\"", "kick_cmd": "kick {sender} Please watch the spam!", "ban_cmd": "ban {sender} Spam."}, indent=4))
+                    f.write(json.dumps({"enabled": False, "kicks_before_ban": 2, "warns_before_kick": 2, "warn_cooldown": 30, "kick_cooldown": 300, "warn_cmd": "msg {sender} \"Please watch the spam!\"", "kick_cmd": "kick {sender} Please watch the spam!", "ban_cmd": "ban {sender} Spam."}, indent=4))
 
     config = {}
 
