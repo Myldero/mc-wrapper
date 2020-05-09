@@ -52,9 +52,9 @@ class Votifier(threading.Thread):
                 while self.running:
                     conn, addr = serversocket.accept()
 
-                    code = self.cipher.decrypt(conn.recv(self.buffer), "")
-
                     try:
+                        code = self.cipher.decrypt(conn.recv(self.buffer), b"")
+
                         if b"VOTE" in code:
 
                             vote = {}
@@ -79,7 +79,8 @@ class Votifier(threading.Thread):
 
                             except AttributeError:
                                 pass
-
+                    except ValueError:
+                        pass
                     finally:
                         conn.close()
 
