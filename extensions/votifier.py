@@ -4,6 +4,7 @@ An extension that allows for detecting votes on server lists and sending command
 
 import threading, socket, re, os, requests
 from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_v1_5
 from Crypto import Random
 
 class Votifier(threading.Thread):
@@ -23,13 +24,13 @@ class Votifier(threading.Thread):
         public_key = private_key.publickey()
 
         with open('config/private.pem', 'w') as f:
-            f.write(private_key.exportKey(format='PEM').decode())
+            f.write(private_key.export_key(format='PEM').decode())
 
         with open('config/public.pem', 'w') as f:
-            f.write(public_key.exportKey(format='PEM').decode())
+            f.write(public_key.export_key(format='PEM').decode())
 
     def getKey(self):
-        public_key = self.private_key.publickey().exportKey(format='PEM').decode()
+        public_key = self.private_key.publickey().export_key(format='PEM').decode()
 
         return re.findall(r'^-----BEGIN PUBLIC KEY-----([\s\S]+)-----END PUBLIC KEY-----$', public_key)[0].replace("\n","")
 
@@ -51,7 +52,7 @@ class Votifier(threading.Thread):
                 while self.running:
                     conn, addr = serversocket.accept()
 
-                    code = self.private_key.decrypt(conn.recv(self.buffer))
+                    code = self.cipher.decrypt(conn.recv(self.buffer), "")
 
                     try:
                         if b"VOTE" in code:
@@ -100,7 +101,8 @@ class Votifier(threading.Thread):
         self.port = config["votifier"]["port"]
         self.commands = config["votifier"]["commands"]
         self.check_players = config["votifier"]["check_players"]
-        self.private_key = RSA.importKey(config["votifier"]["private_key"])
+        self.private_key = RSA.import_key(config["votifier"]["private_key"])
+        self.cipher = PKCS1_v1_5.new(self.private_key)
         self.buffer = 256
 
         self.stop()
