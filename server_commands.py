@@ -4,13 +4,16 @@ They start with '!'
 '''
 
 import shutil, os, threading
+from textwrap import dedent
 from time import sleep
 
 
 def cmd_help(cmd=None):
-    '''Usage: !help [command]'''
+    """
+    Usage: !help [command]
+    """
 
-    if cmd == None:
+    if cmd is None:
         # Show all commands
         print("Commands:")
 
@@ -21,32 +24,40 @@ def cmd_help(cmd=None):
     else:
         for name, value in globals().items():
             if name == "cmd_"+cmd:
-                print(value.__doc__)
+                print(dedent(value.__doc__).strip())
                 return
 
         print("Unknown command. Try !help")
 
 
 def cmd_start():
-    '''Usage: !start'''
+    """
+    Usage: !start
+    """
 
-    if wrapper.server.jar.poll() != None:
-        wrapper.server.start()
+    try:
+        if wrapper.server.jar.poll() is not None:
+            wrapper.server.start()
+    except Exception as e:
+        print(e)
 
 
 def cmd_stop():
-    '''Usage: !stop'''
+    """
+    Usage: !stop
+    """
 
     raise KeyboardInterrupt
 
 
 def cmd_restart():
-    '''Usage: !restart'''
+    """
+    Usage: !restart
+    """
 
-    if wrapper.server.jar.poll() == None: # If server is running
+    if wrapper.server.jar.poll() is None:  # If server is running
 
-        for player in wrapper.server.list:
-            wrapper.server.send("kick {} {}".format(player, wrapper.config["server"]["restart_message"]))
+        wrapper.server.send("kick @a {}".format(wrapper.server.config["restart_message"]))
 
         wrapper.server.send("stop")
         sleep(1)
@@ -55,36 +66,66 @@ def cmd_restart():
 
 
 def cmd_backup(name=None):
-    '''Usage: !backup [backup_name]'''
+    """
+    Usage: !backup [backup_name]
+    """
 
     threading.Thread(target=_backup, args=[name]).start()
 
 
 def cmd_list():
-    '''Usage: !list'''
+    """
+    Usage: !list
+    """
 
-    print("There are currently {0} players online:\n{1}".format(len(wrapper.server.list), ", ".join(sorted(wrapper.server.list, key=lambda x: x.upper()))))
+    print("There are currently {0} players online:\n{1}".format(len(wrapper.server.list), ", ".join(sorted([i.username for i in wrapper.server.list], key=lambda x: x.upper()))))
 
 
-def cmd_reload():
-    '''Usage: !reload'''
+def cmd_reload(arg=None):
+    """
+    Usage: !reload [full]
+    """
 
     try:
-        wrapper.reload()
+        if arg == "full":
+            wrapper.full_reload()
+        else:
+            wrapper.reload()
     except Exception as e:
         print(e)
     else:
         print("Reloaded config!")
 
 
-def cmd_votifier(arg):
-    '''Usage: !votifier key'''
+def cmd_extension(ext_name, cmd):
+    """
+    Usage !extension <name> <start|stop|restart>
+    """
 
-    if arg == "key":
-        print(wrapper.extensions["votifier"].getKey())
+    try:
+        ext = wrapper.extensions[ext_name]
+    except KeyError:
+        print("Unknown extension")
+    else:
 
+        if cmd == "start":
+            if not ext.enabled:
+                ext.start()
+            else:
+                print("{} is already started".format(ext_name))
+        elif cmd == "stop":
+            if ext.enabled:
+                ext.stop()
+                ext.wait_stop()
+            else:
+                print("{} is already stopped".format(ext_name))
+        elif cmd == "restart":
 
+            if ext.enabled:
+                ext.stop()
+                ext.wait_stop()
 
+            ext.start()
 
 
 def _backup(name=None):

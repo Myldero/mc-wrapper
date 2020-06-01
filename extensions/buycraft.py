@@ -1,30 +1,32 @@
-'''
-A modified version of Python Buycraft API by minecrafter
-https://github.com/minecrafter/buycraft-python
-'''
+"""
+An extension to add a BuyCraft store (Now called Tebex) to your server
 
-import re, requests, threading
+https://github.com/minecrafter/buycraft-python
+"""
+
+import re
+import requests
 from time import sleep
+
+from base_extension import BaseExtension
 
 
 class BuycraftException(Exception):
     pass
 
 
-class Buycraft(threading.Thread):
+class Buycraft(BaseExtension):
 
-    def __init__(self, wrapper):
-        super().__init__()
-        self.wrapper = wrapper
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.name = "buycraft"
 
         self.url = 'https://plugin.buycraft.net'
         self.get = {}
 
-        self.send = self.wrapper.server.send
         self.player_list = self.wrapper.server.list
 
-
-    def run(self):
+    def on_start(self):
         while self.enabled:
 
             self.get = self.get_due_players()
@@ -37,14 +39,13 @@ class Buycraft(threading.Thread):
                 for command in offline["commands"]:
                     command["player"]["username"] = command["player"]["name"]
 
-
-                    for key in command["player"]: # Because it's very likely that there's json in the commands
+                    # Because it's very likely that there's json in the commands
+                    for key in command["player"]:
                         command["command"] = command["command"].replace("{{{}}}".format(key), command["player"][key])
 
-                    self.send(command["command"])
+                    self.wrapper.server.send(command["command"])
 
                     done.append(command["id"])
-
 
                 if done:
                     self.mark_commands_completed(done)
@@ -52,46 +53,44 @@ class Buycraft(threading.Thread):
             self.online_commands()
 
             n = 0
-            while self.enabled and n < self.get["meta"]["next_check"]: # Keep checking if the wrapper is closed every second
+            # Keep checking if the wrapper is closed every second
+            while self.enabled and n < self.get["meta"]["next_check"]:
                 n += 1
                 sleep(1)
-
 
     def online_commands(self):
 
         done = []
 
         for player in list(self.get["players"]):
-            if player["name"] in self.player_list:
+            if any(player["name"] == i.username for i in self.player_list):
                 commands = self.get_player_commands(player["id"])
-
 
                 for command in commands["commands"]:
                     player["username"] = player["name"]
 
-                    for key in player: # Because it's very likely that there's json in the commands and just using .format would mess up
+                    for key in player:
                         command["command"] = command["command"].replace("{{{}}}".format(key), "{}".format(player[key]))
 
-                    self.send(command["command"])
+                    self.wrapper.server.send(command["command"])
                     done.append(command["id"])
 
                 self.get["players"].remove(player)
 
-
         if done:
             self.mark_commands_completed(done)
 
+    def on_player_join(self, player):
+        self.online_commands()
 
-    def stop(self):
-        self.enabled = False
+    def on_reload(self):
 
-    def setConfig(self, config):
-        self.enabled = config["buycraft"]["enabled"]
-        self.secret = config["buycraft"]["key"]
-
-
-
-
+        try:
+            self.config = self.load_json_config(name=self.name, default={'enabled': False, 'key': ''})
+        except Exception:
+            pass
+        else:
+            self.secret = self.config['key']
 
     def _getjson(self, url):
         response = requests.get(url, headers={'X-Buycraft-Secret': self.secret}).json()
@@ -159,7 +158,7 @@ class Buycraft(threading.Thread):
         :param username: the username to use for this package
         :param package_id: the package ID to check out
         """
-        if not isinstance(username, str) or len(username) > 16 or not re.match('\w', username):
+        if not isinstance(username, str) or len(username) > 16 or not re.match(r'\w', username):
             raise BuycraftException("Username is not valid")
 
         if not isinstance(package_id, int):
