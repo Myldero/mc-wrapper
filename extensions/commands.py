@@ -30,14 +30,21 @@ class Commands(BaseExtension):
                     for key, value in special_characters:
                         match[i] = match[i].replace(key, value)
 
-                if exp["type"] == "command":
+                if "condition" in exp:
+                    condition = "execute {}".format(exp["condition"])
+                    for i in range(len(match)):
+                        condition = condition.replace("{{{}}}".format(i), match[i])
+                    condition = condition.replace("{{{}}}".format("sender"), sender.username)
 
+                    condition_check = self.wrapper.server.send(condition, result=True)
+                    if not condition_check.startswith("Test passed"):
+                        continue
+
+                if exp["type"] == "command":
                     for command in exp["run"]:
                         cmd = command
-
                         for i in range(len(match)):
                             cmd = cmd.replace("{{{}}}".format(i), match[i])
-
                         cmd = cmd.replace("{{{}}}".format("sender"), sender.username)
 
                         self.wrapper.server.send(cmd)
@@ -59,6 +66,14 @@ class Commands(BaseExtension):
                         ]
                     },
                     {
+                        "type": "command",
+                        "match": "^\\.restart$",
+                        "run": [
+                            "!restart"
+                        ],
+                        "condition": "as {sender} if entity @s[tag=can_restart]"
+                    },
+                    {
                         "type": "function",
                         "match": "([0-9]+)\\+([0-9]+)",
                         "run": "do_math"
@@ -78,7 +93,7 @@ class Commands(BaseExtension):
                 self.config = config
                 return
 
-            if not os.path.isfile("commands.py"):
+            if not os.path.isfile("config/commands.py"):
                 file_s = '''\
 """
 A file for putting in custom functions for regex commands
@@ -86,8 +101,9 @@ A file for putting in custom functions for regex commands
 sender is a string containing the username of the player who sent the command
 match is a list containing strings matching to {0}, {1}, {2}, etc..
 """
-from time import time, sleep
-import re, requests
+
+import time
+import re
 
 def do_math(sender, match):
 
@@ -97,28 +113,29 @@ def do_math(sender, match):
 
 
 def tps(sender, match):
-    def get():
-        t = wrapper.server.send("time query gametime", result=True)
-        a = re.findall(r'The time is ([0-9]+)', t)
-        if a:
-            return int(a[0])
+    def _get():
+        query = wrapper.server.send("time query gametime", result=True)
+        value = re.findall(r'The time is ([0-9]+)', query)
+        if value:
+            return int(value[0])
         return None
 
-    a = time()
-    start_time = get()
-    sleep(5 - time() + a) # Runs at a bit less than 5 seconds so it's precise
-    end_time = get()
+    start_time = time.time()
+    start_tick = _get()
+    time.sleep(5 - time.time() + start_time)
+    end_time = time.time()
+    end_tick = _get()
 
-    delta = end_time - start_time
+    delta_time = end_time - start_time
+    delta_tick = end_tick - start_tick
 
-    wrapper.server.send("say The server TPS is {}".format(round(delta/5, 1)))
+    wrapper.server.send("say The server TPS is {}".format(round(delta_tick / delta_time, 1)))
 '''
-
-                with open('commands.py', 'w') as f:
+                with open('config/commands.py', 'w') as f:
                     f.write(file_s)
 
             try:
-                commands = importlib.import_module("commands")
+                commands = importlib.import_module("config.commands")
                 importlib.reload(commands)
                 commands.wrapper = self.wrapper
 
