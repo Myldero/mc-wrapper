@@ -1,7 +1,7 @@
-'''
+"""
 Commands for the server to run.
 They start with '!'
-'''
+"""
 
 import shutil, os, threading
 from textwrap import dedent
@@ -136,11 +136,11 @@ def _backup(name=None):
 
     world_name = wrapper.server.properties["level-name"]
 
-    if name == None:
+    if name is None:
         name = world_name
 
-    world_path = os.path.join(wrapper.config["server"]["file_path"], world_name)
+    world_path = os.path.join(wrapper.server.config["file_path"], world_name)
 
-    shutil.make_archive(os.path.join(wrapper.config["server"]["backups_folder"], name), 'zip', world_path)
+    shutil.make_archive(os.path.join(wrapper.server.config["backups_folder"], name), 'zip', world_path)
 
     print("Backed up world as \"{}\"".format(name))

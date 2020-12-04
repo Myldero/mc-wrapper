@@ -1,7 +1,8 @@
 import glob
 import inspect
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 import time
+import signal
 
 import threading
 import re
@@ -19,6 +20,7 @@ class Wrapper:
         self.server = Server(self)
 
         self.extensions = {}
+        self._extension_modules = {}
         self.full_reload()
         self.server.start()
 
@@ -30,13 +32,17 @@ class Wrapper:
         for ext in self.extensions.values():
             ext.wait_stop()
 
-        self.extensions = {}
+        self.extensions.clear()
 
         for path in glob.iglob("extensions/*"):
             path = path.split(".")[0].replace("/", ".").replace("\\", ".")
-            importlib.invalidate_caches()
-            extension_module = importlib.import_module(path)
-            importlib.reload(extension_module)
+
+            if path in self._extension_modules:
+                extension_module = self._extension_modules[path]
+                importlib.reload(extension_module)
+            else:
+                extension_module = importlib.import_module(path)
+                self._extension_modules[path] = extension_module
 
             for name, obj in inspect.getmembers(extension_module):
                 if inspect.isclass(obj) and issubclass(obj, BaseExtension):
@@ -107,7 +113,8 @@ class Server:
         del self.list[:]  # Empty player list without creating new object
 
         cmd = ["java"] + self.config["args"] + ["-jar", self.config["file_name"], "nogui"]
-        self.jar = Popen(cmd, stdin=PIPE, stdout=PIPE, universal_newlines=True, bufsize=1, cwd=self.config['file_path'])
+        self.jar = Popen(cmd, stdin=PIPE, stdout=PIPE, preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN),
+                         universal_newlines=True, bufsize=1, cwd=self.config['file_path'])
 
         threading.Thread(target=self.stdout).start()
         self.has_stopped = False
@@ -129,8 +136,11 @@ class Server:
         if cmd == "":
             return
 
-        with open('logs/sent.log', 'a') as f:
-            f.write(cmd + "\n")
+        try:
+            with open('logs/sent.log', 'a') as f:
+                f.write(cmd + "\n")
+        except FileNotFoundError:
+            pass
 
         if cmd.startswith("!"):
 
@@ -180,11 +190,15 @@ class Server:
             threading.Thread(target=self.regex, args=[line]).start()
 
         self.jar.stdout.close()
-        # TODO: Check if jar stopped correctly or not
+
+        if not self.has_stopped:
+            time.sleep(1)
+            self.send("!start")
 
     def get_sender(self, namestring):
         for player in self.list:
-            if player.username in namestring:
+            # Assumes that suffixes are not set for players!
+            if player.username == re.findall(r'[A-Za-z0-9_]+$', namestring)[0]:
                 return player
         return None
 
@@ -213,7 +227,7 @@ class Server:
 
         if re.search(r'^<', text):
 
-            namestring, message = re.findall(r'^<(.+)> (.*)$', text)[0]
+            namestring, message = text[1:].split("> ", 1)
             sender = self.get_sender(namestring)
 
             for ext in self.wrapper.extensions.values():
@@ -242,10 +256,13 @@ class Server:
 
             username, ip = re.findall(r'^([A-Za-z0-9_]+)\[/([0-9\.:]+)\] logged in', text)[0]
             ip = ip.split(":")[0]
-            while username not in self.uuids:
+            if username not in self.uuids:
                 time.sleep(0.1)
-                print("Waited!")
-            uuid = self.uuids[username]
+
+            if username in self.uuids:
+                uuid = self.uuids[username]
+            else:
+                uuid = None  # If using offline-mode
 
             player = OnlinePlayer(username=username, uuid=uuid, ip=ip)
 
@@ -263,10 +280,6 @@ class Server:
             for ext in self.wrapper.extensions.values():
                 if ext.enabled:
                     ext.on_server_stop()
-
-            if not self.has_stopped:
-                time.sleep(5)
-                self.send("!start")
 
         elif re.search(r'^Done \(', text):
             self.running = True
@@ -315,10 +328,17 @@ if __name__ == "__main__":
 
         wrapper.server.send("stop")
 
-
         for _ext in wrapper.extensions.values():
             if _ext.enabled:
                 _ext.stop()
 
-        wrapper.server.jar.wait()
-        # TODO: Send stop signal to jar if it doesn't stop after timeout of 5(?) seconds
+        for _ext in wrapper.extensions.values():
+            if _ext.enabled:
+                _ext.wait_stop()
+
+        while True:
+            try:
+                wrapper.server.jar.wait(timeout=2)
+                break
+            except TimeoutExpired:
+                wrapper.server.send("stop")

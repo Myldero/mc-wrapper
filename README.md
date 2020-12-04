@@ -17,7 +17,7 @@ A config folder will appear. To get the server running, a path to the jar file m
 ## Extensions
 
 ### Votifier
-Votifier is an essential plugin for a Minecraft server. To get started, specify appropriate commands as vote rewards inside the commands list in `votifier.json`. When the config is ready, votifier just need to be setup on the voting site. To do this, get the public key by typing `!votifier key` in the server console.
+Votifier is an essential plugin for a Minecraft server. To get started, specify appropriate commands as vote rewards inside the commands list in `votifier.json`. When the config is ready, Votifier just needs to be setup on the voting site. To do this, get the public key by typing `!votifier key` in the server console.
 
 ### Buycraft
 A simple extension that allows for a connection to Buycraft for donation rewards. Just fill in the key in `buycraft.json` and it should be ready for use.

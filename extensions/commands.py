@@ -119,6 +119,7 @@ def tps(sender, match):
 
             try:
                 commands = importlib.import_module("commands")
+                importlib.reload(commands)
                 commands.wrapper = self.wrapper
 
                 for cmd in config["commands"]:

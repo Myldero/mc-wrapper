@@ -34,10 +34,10 @@ class Votifier(BaseExtension):
         private_key = RSA.generate(2048, generator)
         public_key = private_key.publickey()
 
-        with open('config/private.pem', 'w') as f:
+        with open('data/private.pem', 'w') as f:
             f.write(private_key.export_key(format='PEM').decode())
 
-        with open('config/public.pem', 'w') as f:
+        with open('data/public.pem', 'w') as f:
             f.write(public_key.export_key(format='PEM').decode())
 
     def get_key(self):
@@ -45,25 +45,16 @@ class Votifier(BaseExtension):
 
         return re.findall(r'^-----BEGIN PUBLIC KEY-----([\s\S]+)-----END PUBLIC KEY-----$', public_key)[0].replace("\n", "")
 
-    def check_player(self, username):
-        if not re.search(r'^[A-Za-z0-9_]+$', username):
-            return False
+    def check_player(self, uuid):
+        file_path = self.wrapper.server.config["file_path"]
+        world_name = self.wrapper.server.properties["level-name"]
 
-        try:
-            uuid = self.get_uuid(username)
-
-            file_path = self.wrapper.server.config["file_path"]
-            world_name = self.wrapper.server.properties["level-name"]
-
-            return os.path.exists(os.path.join(file_path, world_name, "playerdata", "{}.dat".format(uuid)))
-
-        except Exception:
-            return False
+        return os.path.exists(os.path.join(file_path, world_name, "playerdata", "{}.dat".format(uuid)))
 
     @staticmethod
-    def get_uuid(username):
+    def get_name_and_uuid(username):
         """
-        Gets the UUID of a player formatted with dashes
+        Gets the username and UUID of a player formatted correctly
         """
 
         url = "https://api.mojang.com/users/profiles/minecraft/" + username
@@ -71,7 +62,7 @@ class Votifier(BaseExtension):
         uuid = response["id"]
         uuid = uuid[:8] + "-" + uuid[8:12] + "-" + uuid[12:16] + "-" + uuid[16:20] + "-" + uuid[20:]
 
-        return uuid
+        return response["name"], uuid
 
     def handle_vote(self, conn, addr):
         try:
@@ -83,20 +74,25 @@ class Votifier(BaseExtension):
                 vote["service_name"], vote["username"], vote["address"], vote["timestamp"] = [i.decode() for i in
                                                                                               code.split(b"VOTE")[
                                                                                                   1].split()[:4]]
+                try:
+                    vote["username"], uuid = self.get_name_and_uuid(vote["username"])
+                except Exception:
+                    vote["username"] = "Someone"
+                else:
+                    if self.config["check_players"] and not self.check_player(uuid):
+                        vote["username"] = "Someone"
 
-                if not self.config["check_players"] or self.check_player(vote["username"]):
+                out = ""
+                for command in self.config["commands"]:
+                    for key in vote:  # Because it's very likely that there's json in the commands
+                        command = command.replace("{{{}}}".format(key), vote[key])
 
-                    out = ""
-                    for command in self.config["commands"]:
-                        for key in vote:  # Because it's very likely that there's json in the commands
-                            command = command.replace("{{{}}}".format(key), vote[key])
+                    out += command + "\n"
 
-                        out += command + "\n"
+                self.wrapper.server.send(out)
 
-                    self.wrapper.server.send(out)
-
-                    with open('logs/votifier.log', 'a') as f:
-                        f.write("{timestamp} : {username} ({address}) has voted on {service_name}\n".format(**vote))
+                with open('logs/votifier.log', 'a') as f:
+                    f.write("{vote_time} : {username} ({address}) has voted on {service_name}\n".format(vote_time=int(time.time()), **vote))
 
         except ValueError:
             pass
@@ -157,10 +153,10 @@ class Votifier(BaseExtension):
             for i in range(len(self.config["commands"])):
                 self.config["commands"][i] = self.config["commands"][i].replace("\n", "\\n")
 
-            if not os.path.isfile('config/private.pem'):
+            if not os.path.isfile('data/private.pem'):
                 self.generate_keys()
 
-            with open('config/private.pem', 'r') as f:
+            with open('data/private.pem', 'r') as f:
                 self.private_key = RSA.import_key(f.read())
 
             self.cipher = PKCS1_v1_5.new(self.private_key)
