@@ -88,4 +88,13 @@ class BaseExtension:
             print(e)
             raise
         else:
+            update_file = False
+            for key in default:
+                if key not in config:
+                    update_file = True
+                    config[key] = default[key]
+            if update_file:
+                with open(path, 'w') as f:
+                    f.write(json.dumps(config, indent=4))
+
             return config

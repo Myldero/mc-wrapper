@@ -17,12 +17,12 @@ class SpamFilter(BaseExtension):
     def on_player_message(self, sender, message):
         sender = sender.username
 
+        cmds = None
+
         if sender not in self.players:
             self.players[sender] = {'message': message, 'timestamp': time(), 'count': 0, 'warns': 0, 'kicks': 0}
 
         else:
-            cmds = None
-
             if self.players[sender]['timestamp'] + 0.03 > time():
                 self.players[sender]['count'] += 3
 
@@ -48,22 +48,28 @@ class SpamFilter(BaseExtension):
                 else:
                     cmds = self.config["warn_cmd"]
 
-            if cmds is not None:
-                for cmd in cmds:
-                    cmd = cmd.replace("\n", "\\n")
-                    self.wrapper.server.send(cmd.replace("{{{}}}".format("sender"), sender))
+        # Prevent bad words
+        for word in message.split():
+            if word in self.config["bad_words"]:
+                cmds = self.config["ban_cmd"]
+                break
 
-            if self.players[sender]['timestamp'] + 10 <= time():
-                self.players[sender]['count'] = 0
+        if cmds is not None:
+            for cmd in cmds:
+                cmd = cmd.replace("\n", "\\n")
+                self.wrapper.server.send(cmd.replace("{sender}", sender))
 
-            if self.players[sender]['timestamp'] + self.config["warn_cooldown"] <= time():
-                self.players[sender]['warns'] = 0
+        if self.players[sender]['timestamp'] + 10 <= time():
+            self.players[sender]['count'] = 0
 
-            if self.players[sender]['timestamp'] + self.config["kick_cooldown"] <= time():
-                self.players[sender]['kicks'] = 0
+        if self.players[sender]['timestamp'] + self.config["warn_cooldown"] <= time():
+            self.players[sender]['warns'] = 0
 
-            self.players[sender]['message'] = message
-            self.players[sender]['timestamp'] = time()
+        if self.players[sender]['timestamp'] + self.config["kick_cooldown"] <= time():
+            self.players[sender]['kicks'] = 0
+
+        self.players[sender]['message'] = message
+        self.players[sender]['timestamp'] = time()
 
     def on_reload(self):
 
@@ -76,7 +82,10 @@ class SpamFilter(BaseExtension):
                 "kick_cooldown": 300,
                 "warn_cmd": ["tell {sender} Please watch the spam!"],
                 "kick_cmd": ["kick {sender} Please watch the spam!"],
-                "ban_cmd": ["ban {sender} Spam."]
+                "ban_cmd": ["ban {sender} Spam."],
+                "bad_words": ["nigger"]
             })
         except Exception:
             pass
+        else:
+            self.config["bad_words"] = set(self.config["bad_words"])
