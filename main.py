@@ -112,7 +112,7 @@ class Server:
 
         del self.list[:]  # Empty player list without creating new object
 
-        cmd = ["java"] + self.config["args"] + ["-jar", self.config["file_name"], "nogui"]
+        cmd = [self.config["java_path"] if "java_path" in self.config else "java"] + self.config["args"] + ["-jar", self.config["file_name"], "nogui"]
         self.jar = Popen(cmd, stdin=PIPE, stdout=PIPE, preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN),
                          universal_newlines=True, bufsize=1, cwd=self.config['file_path'])
 
@@ -214,7 +214,7 @@ class Server:
             if ext.enabled:
                 ext.on_server_all_messages(line)
 
-        text = re.search(r'^\[[0-9]{2}:[0-9]{2}:[0-9]{2}\] \[[A-Za-z0-9# ]+/INFO\]: (.*)$', line)
+        text = re.search(r'^\[[0-9]{2}:[0-9]{2}:[0-9]{2}\] \[[A-Za-z0-9#\- ]+/INFO\]: (.*)$', line)
 
         if text is None:
             return
