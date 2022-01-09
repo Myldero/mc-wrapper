@@ -232,7 +232,12 @@ class Server:
 
             for ext in self.wrapper.extensions.values():
                 if ext.enabled:
-                    ext.on_player_message(sender, message)
+                    try:
+                        ext.on_player_message(sender, message)
+                    except Exception as e:
+                        print(e)
+                        with open('logs/error.log', 'a') as f:
+                            print(e, file=f)
 
         elif re.search(r'^UUID of player [A-Za-z0-9_]+ is [a-z0-9\-]+', text):
 
@@ -250,7 +255,12 @@ class Server:
 
             for ext in self.wrapper.extensions.values():
                 if ext.enabled:
-                    ext.on_player_leave(player=player)
+                    try:
+                        ext.on_player_leave(player=player)
+                    except Exception as e:
+                        print(e)
+                        with open('logs/error.log', 'a') as f:
+                            print(e, file=f)
 
         elif re.search(r'^[A-Za-z0-9_]+\[/[0-9\.:]+\] logged in', text):
 
@@ -271,7 +281,12 @@ class Server:
 
             for ext in self.wrapper.extensions.values():
                 if ext.enabled:
-                    ext.on_player_join(player=player)
+                    try:
+                        ext.on_player_join(player=player)
+                    except Exception as e:
+                        print(e)
+                        with open('logs/error.log', 'a') as f:
+                            print(e, file=f)
 
         elif re.search(r'^Stopping ', text):
             self.running = False
