@@ -47,6 +47,7 @@ def cmd_stop():
     Usage: !stop
     """
 
+    wrapper.server.send("kick @a The server is stopping")
     raise KeyboardInterrupt
 
 
