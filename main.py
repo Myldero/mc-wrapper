@@ -225,7 +225,7 @@ class Server:
             if ext.enabled:
                 ext.on_server_message(text)
 
-        if re.search(r'^<', text):
+        if re.search(r'^(?:\[Not Secure\] |\[Modified\] )?<', text):
 
             namestring, message = text[1:].split("> ", 1)
             sender = self.get_sender(namestring)
